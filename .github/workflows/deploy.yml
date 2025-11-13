@@ -1,0 +1,102 @@
+name: Build and Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
+
+env:
+  NODE_VERSION: '18.x'
+  NEXT_PUBLIC_API_URL: https://api.darshanagalketayam.lk
+  NEXT_PUBLIC_SITE_URL: https://darshanagalketayam.lk
+  NODE_ENV: production
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # Install dependencies with clean install for reproducible builds
+      - name: Install dependencies
+        run: npm ci
+
+      # Run type checking
+      - name: Type check
+        run: npm run type-check
+        continue-on-error: false
+
+      # Run linting
+      - name: Lint code
+        run: npm run lint
+        continue-on-error: false
+
+      # Build the Next.js application
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
+          NODE_ENV: ${{ env.NODE_ENV }}
+
+      # Create deployment package
+      - name: Create deployment package
+        run: |
+          # Create a temporary directory for deployment files
+          mkdir -p deploy
+
+          # Copy necessary files for production
+          cp -r .next deploy/
+          cp -r public deploy/
+          cp -r node_modules deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          cp next.config.js deploy/
+
+          # Create .env.production file
+          echo "NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}" > deploy/.env.production
+          echo "NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}" >> deploy/.env.production
+          echo "NODE_ENV=production" >> deploy/.env.production
+
+          echo "Deployment package created successfully"
+          du -sh deploy/
+
+      # Deploy to SFTP server
+      - name: Deploy to production server
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './deploy/*'
+          remote_path: /var/www/vhosts/darshanagalketayam.lk/httpdocs/
+          sftp_only: true
+          delete_remote_files: false
+
+      # Verify deployment
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Site URL: ${{ env.NEXT_PUBLIC_SITE_URL }}"
+          echo "📦 Deployed files from ./deploy/* to remote server"
+
+      # Notify on failure
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed! Please check the logs above."
+          exit 1

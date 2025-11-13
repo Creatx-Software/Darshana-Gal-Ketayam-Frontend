@@ -1,0 +1,116 @@
+name: Build and Deploy to Production (SSH Keys)
+
+# This is an alternative deployment workflow using SSH keys instead of password
+# More secure than password authentication
+# To use this workflow:
+# 1. Generate SSH key pair on your local machine
+# 2. Add public key to server's ~/.ssh/authorized_keys
+# 3. Add private key to GitHub Secrets as SFTP_SSH_KEY
+# 4. Rename this file to deploy.yml and delete the other deploy.yml
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18.x'
+  NEXT_PUBLIC_API_URL: https://api.darshanagalketayam.lk
+  NEXT_PUBLIC_SITE_URL: https://darshanagalketayam.lk
+  NODE_ENV: production
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+        continue-on-error: false
+
+      - name: Lint code
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
+          NODE_ENV: ${{ env.NODE_ENV }}
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r .next deploy/
+          cp -r public deploy/
+          cp -r node_modules deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          cp next.config.js deploy/
+
+          # Create .env.production
+          echo "NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}" > deploy/.env.production
+          echo "NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}" >> deploy/.env.production
+          echo "NODE_ENV=production" >> deploy/.env.production
+
+          echo "Deployment package created"
+          du -sh deploy/
+
+      # Using SSH key authentication (more secure)
+      - name: Deploy via SFTP with SSH key
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          ssh_private_key: ${{ secrets.SFTP_SSH_KEY }}
+          local_path: './deploy/*'
+          remote_path: /var/www/vhosts/darshanagalketayam.lk/httpdocs/
+          sftp_only: true
+          delete_remote_files: false
+
+      # Optional: Restart the Next.js application on the server
+      - name: Restart Next.js application
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          key: ${{ secrets.SFTP_SSH_KEY }}
+          script: |
+            cd /var/www/vhosts/darshanagalketayam.lk/httpdocs
+            # Check if PM2 is installed and restart the app
+            if command -v pm2 &> /dev/null; then
+              pm2 restart darshana-gal-ketayam || pm2 start npm --name "darshana-gal-ketayam" -- start
+              echo "✅ Application restarted with PM2"
+            else
+              echo "⚠️  PM2 not found. Please manually restart the application."
+            fi
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Site URL: ${{ env.NEXT_PUBLIC_SITE_URL }}"
+          echo "📦 Deployed files to production server"
+          echo "🔄 Application restart attempted"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed! Please check the logs above."
+          exit 1
