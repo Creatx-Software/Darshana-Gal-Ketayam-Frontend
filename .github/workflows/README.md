@@ -30,11 +30,10 @@ The deployment workflow runs automatically when:
 The workflow performs the following steps:
 
 1. **Checkout code** - Retrieves the latest code from the repository
-2. **Setup Node.js** - Installs Node.js 18.x with npm caching
+2. **Setup Node.js** - Installs Node.js 20.x with npm caching
 3. **Install dependencies** - Runs `npm ci` for clean, reproducible installs
 4. **Type check** - Validates TypeScript types (`npm run type-check`)
-5. **Lint code** - Checks code quality (`npm run lint`)
-6. **Build** - Creates optimized production build (`npm run build`)
+5. **Build** - Creates optimized production build (`npm run build`) - This also catches most code issues
 7. **Create deployment package** - Packages necessary files:
    - `.next/` - Built Next.js application
    - `public/` - Static assets
@@ -88,8 +87,8 @@ Create a systemd service file for automatic startup and management.
 
 ### 8. Troubleshooting
 
-**Deployment fails at type-check or lint:**
-- Fix the TypeScript errors or ESLint warnings in your code
+**Deployment fails at type-check or build:**
+- Fix the TypeScript errors or build issues in your code
 - Push the fixes to trigger a new deployment
 
 **SFTP connection fails:**
