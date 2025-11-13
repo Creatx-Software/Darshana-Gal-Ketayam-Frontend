@@ -36,7 +36,7 @@ jobs:
         run: |
           # Update lock file if out of sync, then clean install
           npm install --package-lock-only
-          npm ci
+          npm ci --include=dev
 
       # Run type checking
       - name: Type check
