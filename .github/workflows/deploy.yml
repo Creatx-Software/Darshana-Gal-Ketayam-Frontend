@@ -51,39 +51,52 @@ jobs:
           NEXT_PUBLIC_SITE_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
           NODE_ENV: ${{ env.NODE_ENV }}
 
-      # Create deployment package (excluding node_modules for speed)
-      - name: Create deployment package
+      # Create .env.production file
+      - name: Create environment file
         run: |
-          # Create a temporary directory for deployment files
-          mkdir -p deploy
+          echo "NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}" > .env.production
+          echo "NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}" >> .env.production
+          echo "NODE_ENV=production" >> .env.production
 
-          # Copy necessary files for production
-          # NOTE: node_modules should be installed on the server, not deployed
-          cp -r .next deploy/
-          cp -r public deploy/
-          cp package.json deploy/
-          cp package-lock.json deploy/
-          cp next.config.js deploy/
+          echo "📦 Deployment package ready"
+          echo "Package size breakdown:"
+          du -sh .next public
 
-          # Create .env.production file
-          echo "NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}" > deploy/.env.production
-          echo "NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}" >> deploy/.env.production
-          echo "NODE_ENV=production" >> deploy/.env.production
-
-          echo "Deployment package created successfully"
-          du -sh deploy/
-          echo "📦 Package size breakdown:"
-          du -sh deploy/.next deploy/public
-
-      # Deploy to SFTP server
-      - name: Deploy to production server
+      # Deploy .next folder
+      - name: Deploy .next build folder
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
-          local_path: './deploy/'
-          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/'
+          local_path: './.next/'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/.next'
+          sftp_only: true
+          delete_remote_files: false
+          args: '-o ConnectTimeout=5'
+
+      # Deploy public folder
+      - name: Deploy public folder
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './public/'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/public'
+          sftp_only: true
+          delete_remote_files: false
+          args: '-o ConnectTimeout=5'
+
+      # Deploy config files
+      - name: Deploy configuration files
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './package.json ./package-lock.json ./next.config.js ./.env.production'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs'
           sftp_only: true
           delete_remote_files: false
           args: '-o ConnectTimeout=5'
