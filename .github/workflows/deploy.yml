@@ -88,17 +88,52 @@ jobs:
           delete_remote_files: false
           args: '-o ConnectTimeout=5'
 
-      # Deploy config files
-      - name: Deploy configuration files
+      # Deploy package.json
+      - name: Deploy package.json
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
-          local_path: './package.json ./package-lock.json ./next.config.js ./.env.production'
-          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs'
+          local_path: './package.json'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/package.json'
           sftp_only: true
-          delete_remote_files: false
+          args: '-o ConnectTimeout=5'
+
+      # Deploy package-lock.json
+      - name: Deploy package-lock.json
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './package-lock.json'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/package-lock.json'
+          sftp_only: true
+          args: '-o ConnectTimeout=5'
+
+      # Deploy next.config.js
+      - name: Deploy next.config.js
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './next.config.js'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/next.config.js'
+          sftp_only: true
+          args: '-o ConnectTimeout=5'
+
+      # Deploy .env.production
+      - name: Deploy .env.production
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: './.env.production'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/.env.production'
+          sftp_only: true
           args: '-o ConnectTimeout=5'
 
       # Install dependencies on server and restart
