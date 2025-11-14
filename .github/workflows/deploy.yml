@@ -51,16 +51,16 @@ jobs:
           NEXT_PUBLIC_SITE_URL: ${{ env.NEXT_PUBLIC_SITE_URL }}
           NODE_ENV: ${{ env.NODE_ENV }}
 
-      # Create deployment package
+      # Create deployment package (excluding node_modules for speed)
       - name: Create deployment package
         run: |
           # Create a temporary directory for deployment files
           mkdir -p deploy
 
           # Copy necessary files for production
+          # NOTE: node_modules should be installed on the server, not deployed
           cp -r .next deploy/
           cp -r public deploy/
-          cp -r node_modules deploy/
           cp package.json deploy/
           cp package-lock.json deploy/
           cp next.config.js deploy/
@@ -72,6 +72,8 @@ jobs:
 
           echo "Deployment package created successfully"
           du -sh deploy/
+          echo "📦 Package size breakdown:"
+          du -sh deploy/.next deploy/public
 
       # Deploy to SFTP server
       - name: Deploy to production server
@@ -80,17 +82,35 @@ jobs:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
-          local_path: './deploy/*'
-          remote_path: /var/www/vhosts/darshanagalketayam.lk/httpdocs/
+          local_path: './deploy/'
+          remote_path: '/var/www/vhosts/darshanagalketayam.lk/httpdocs/'
           sftp_only: true
           delete_remote_files: false
+          args: '-o ConnectTimeout=5'
+
+      # Install dependencies on server and restart
+      - name: Install dependencies and restart on server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          script: |
+            cd /var/www/vhosts/darshanagalketayam.lk/httpdocs
+            echo "📦 Installing production dependencies..."
+            npm ci --production --prefer-offline
+            echo "🔄 Restarting PM2 process..."
+            pm2 restart darshana-gal-ketayam || pm2 start npx --name "darshana-gal-ketayam" -- next start
+            pm2 save
+            echo "✅ Application restarted successfully!"
 
       # Verify deployment
       - name: Verify deployment
         run: |
           echo "✅ Deployment completed successfully!"
           echo "🌐 Site URL: ${{ env.NEXT_PUBLIC_SITE_URL }}"
-          echo "📦 Deployed files from ./deploy/* to remote server"
+          echo "📦 Deployed .next build and config files"
+          echo "🔄 Dependencies installed and PM2 restarted on server"
 
       # Notify on failure
       - name: Notify on failure

@@ -337,6 +337,158 @@ npm i -g vercel
 vercel
 ```
 
+#### **Plesk/Apache Server Deployment**
+
+##### 1. Fix PM2 Configuration
+
+The application needs PM2 configured correctly to find the Next.js binary:
+
+```bash
+# Stop any existing PM2 process
+pm2 delete darshana-gal-ketayam
+
+# Method 1: Using npx (Recommended)
+pm2 start npx --name "darshana-gal-ketayam" -- next start
+pm2 save
+
+# Method 2: Using node directly
+pm2 start node --name "darshana-gal-ketayam" -- node_modules/next/dist/bin/next start
+pm2 save
+```
+
+**Better approach: Create `ecosystem.config.js`** in your project root:
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'darshana-gal-ketayam',
+    script: 'node_modules/next/dist/bin/next',
+    args: 'start',
+    cwd: '/var/www/vhosts/darshanagalketayam.lk/httpdocs',
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    }
+  }]
+}
+```
+
+Then start with:
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+##### 2. Configure Apache Reverse Proxy
+
+Next.js runs on port 3000, so you need Apache to proxy requests to it.
+
+**In Plesk Panel:**
+1. Go to your domain (darshanagalketayam.lk)
+2. Navigate to **Apache & nginx Settings**
+3. Add this to the **Additional directives for HTTP** section:
+
+```apache
+ProxyPreserveHost On
+ProxyPass / http://localhost:3000/
+ProxyPassReverse / http://localhost:3000/
+```
+
+4. For HTTPS, add the same to **Additional directives for HTTPS**
+5. Click **OK** and apply changes
+
+**Manual Apache Configuration** (if not using Plesk panel):
+
+Edit your virtual host configuration (usually in `/etc/apache2/sites-available/` or `/var/www/vhosts/darshanagalketayam.lk/conf/`):
+
+```apache
+<VirtualHost *:80>
+    ServerName darshanagalketayam.lk
+    ServerAlias www.darshanagalketayam.lk
+
+    ProxyPreserveHost On
+    ProxyPass / http://localhost:3000/
+    ProxyPassReverse / http://localhost:3000/
+
+    ErrorLog ${APACHE_LOG_DIR}/darshana-error.log
+    CustomLog ${APACHE_LOG_DIR}/darshana-access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName darshanagalketayam.lk
+    ServerAlias www.darshanagalketayam.lk
+
+    ProxyPreserveHost On
+    ProxyPass / http://localhost:3000/
+    ProxyPassReverse / http://localhost:3000/
+
+    SSLEngine on
+    SSLCertificateFile /path/to/cert.pem
+    SSLCertificateKeyFile /path/to/privkey.pem
+
+    ErrorLog ${APACHE_LOG_DIR}/darshana-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/darshana-ssl-access.log combined
+</VirtualHost>
+```
+
+Then restart Apache:
+```bash
+sudo systemctl restart apache2
+# or on Plesk:
+sudo service apache2 restart
+```
+
+##### 3. Enable PM2 Auto-Start on Reboot
+
+```bash
+pm2 startup systemd -u darshanagalketayam --hp /var/www/vhosts/darshanagalketayam.lk
+# Copy and run the command shown in the output (requires sudo)
+
+pm2 save
+```
+
+##### 4. Verify Deployment
+
+```bash
+# Check PM2 status
+pm2 status
+
+# View logs
+pm2 logs darshana-gal-ketayam
+
+# Test locally
+curl http://localhost:3000
+
+# Test through Apache
+curl http://darshanagalketayam.lk
+```
+
+##### 5. Useful PM2 Commands
+
+```bash
+# View logs
+pm2 logs darshana-gal-ketayam --lines 50
+
+# Monitor app
+pm2 monit
+
+# Restart app
+pm2 restart darshana-gal-ketayam
+
+# Stop app
+pm2 stop darshana-gal-ketayam
+
+# View detailed info
+pm2 show darshana-gal-ketayam
+
+# Update environment variables
+pm2 restart darshana-gal-ketayam --update-env
+```
+
 #### **Other Platforms**
 - Netlify
 - AWS Amplify
@@ -352,6 +504,8 @@ vercel
 - [ ] Enable analytics (Google Analytics, Vercel Analytics, etc.)
 - [ ] Set up sitemap and robots.txt
 - [ ] Configure SSL certificate
+- [ ] Configure Apache reverse proxy (if using Apache/Plesk)
+- [ ] Set up PM2 auto-start on server reboot
 
 ---
 
