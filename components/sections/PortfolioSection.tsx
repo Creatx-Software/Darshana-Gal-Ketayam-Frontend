@@ -19,7 +19,7 @@ export default function PortfolioSection({ categories }: PortfolioSectionProps) 
         : `${API_URL}${category.image.url}`;
 
       // Replace localhost URLs with production API URL
-      url = url.replace('http://localhost:1337', API_URL);
+      url = url.replace('https://api.darshanagalketayam.lk', API_URL);
 
       return url;
     }
