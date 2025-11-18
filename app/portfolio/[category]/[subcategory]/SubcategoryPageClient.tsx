@@ -19,7 +19,7 @@ export default function SubcategoryPageClient({ galleryItems }: SubcategoryPageC
         : `${API_URL}${imageObj.url}`;
 
       // Replace localhost URLs with production API URL
-      url = url.replace('http://localhost:1337', API_URL);
+      url = url.replace('https://api.darshanagalketayam.lk', API_URL);
 
       return url;
     }
