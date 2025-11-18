@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+export const API_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'https://api.darshanagalketayam.lk';
 export const API_BASE = `${API_URL}/api`;
 
 export const API_ENDPOINTS = {
